@@ -44,6 +44,21 @@ class NonIntegerPk(models.Model):
     bar = models.CharField(max_length=20, blank=True)
 
 
+class PointedModel(models.Model):
+    name = models.CharField(max_length=20)
+
+    def __unicode__(self):
+        return self.name
+
+
+class PointerModel(models.Model):
+    name = models.CharField(max_length=20)
+    target = models.ForeignKey(PointedModel)
+
+    def __unicode__(self):
+        return self.name
+
+
 WITHFILE_UPLOAD_TO = 'django'
 WITHFILE_UPLOAD_DIR = os.path.join(settings.MEDIA_ROOT, WITHFILE_UPLOAD_TO)
 

@@ -64,6 +64,8 @@ else:  # pragma: no cover
     models = Fake()
     models.StandardModel = Fake
     models.NonIntegerPk = Fake
+    models.PointedModel = Fake
+    models.PointerModel = Fake
 
 
 test_state = {}
@@ -113,6 +115,21 @@ class WithImageFactory(factory.django.DjangoModelFactory):
     FACTORY_FOR = models.WithImage
 
     animage = factory.django.ImageField()
+
+
+class PointedFactory(factory.django.DjangoModelFactory):
+    FACTORY_FOR = models.PointedModel
+    FACTORY_DJANGO_GET_OR_CREATE = ('name',)
+
+    name = factory.Sequence(lambda n: 'foo%d' % n)
+
+
+class PointerFactory(factory.django.DjangoModelFactory):
+    FACTORY_FOR = models.PointerModel
+    FACTORY_DJANGO_GET_OR_CREATE = ('name',)
+
+    target = factory.SubFactory(PointedFactory)
+    name = factory.Sequence(lambda n: 'bar%d' % n)
 
 
 @unittest.skipIf(django is None, "Django not installed.")
@@ -187,6 +204,44 @@ class DjangoNonIntegerPkTestCase(django_test.TestCase):
         nonint2 = NonIntegerPkFactory.create()
         self.assertEqual('foo1', nonint2.foo)
         self.assertEqual('foo1', nonint2.pk)
+
+
+@unittest.skipIf(django is None, "Django not installed.")
+class DjangoGetOrCreateTestCase(django_test.TestCase):
+    def test_simple_get_or_create(self):
+        std = PointedFactory(name='one')
+        self.assertEqual(1, models.PointedModel.objects.count())
+        self.assertEqual(std, models.PointedModel.objects.get())
+
+        std2 = PointedFactory(name='two')
+        self.assertEqual(2, models.PointedModel.objects.count())
+        self.assertEqual(std2, models.PointedModel.objects.get(name='two'))
+
+        std3 = PointedFactory(name='one')
+        self.assertEqual(std, std3)
+
+    def test_pointed_get_or_create(self):
+        self.assertEqual(0, models.PointerModel.objects.count())
+        self.assertEqual(0, models.PointedModel.objects.count())
+
+        ptr = PointerFactory(name='one')
+        self.assertEqual(1, models.PointerModel.objects.count())
+        self.assertEqual(ptr, models.PointerModel.objects.get())
+        self.assertEqual(1, models.PointedModel.objects.count())
+        self.assertEqual(ptr.target, models.PointedModel.objects.get())
+
+        ptr2 = PointerFactory(name='two')
+        self.assertEqual(2, models.PointerModel.objects.count())
+        self.assertEqual(ptr2, models.PointerModel.objects.get(name='two'))
+        self.assertEqual(2, models.PointedModel.objects.count())
+        self.assertEqual(ptr2.target, models.PointedModel.objects.get(name=ptr2.target.name))
+
+        ptr3 = PointerFactory(name='one')
+        self.assertEqual(ptr, ptr3)
+        self.assertEqual(2, models.PointerModel.objects.count())
+        self.assertEqual(ptr, models.PointerModel.objects.get(name='one'))
+        self.assertEqual(2, models.PointedModel.objects.count())
+        self.assertEqual(ptr.target, models.PointedModel.objects.get(name=ptr3.target.name))
 
 
 @unittest.skipIf(django is None, "Django not installed.")
